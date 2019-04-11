@@ -1,0 +1,84 @@
+---
+title: 'Homework #5'
+author: "Your Name"
+date: "3/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Liquor Sales in Iowa
+
+This dataset https://data.iowa.gov/Economy/Iowa-Liquor-Sales/m3tr-qhgy contains the spirits purchase information of Iowa Class "E" liquor licensees by product and date of purchase from January 1, 2012 to current. The dataset can be used to analyze total spirits sales in Iowa of individual products at the store level.
+
+**Submission instructions**: Create a folder named `ds202_hw5`, and name the RMarkDown file including your solutions `hw5.Rmd` under this folder. For the submission, create a GitHub repository named `ds202_hw5` under your GitHub account, and push both `hw5.Rmd` and the knitted `hw5.html` before the deadline. I will assume you use the same GitHub username as for your HW4 submission. The latest version of your homework appearing on GitHub before the deadline is graded. *It is crucial to follow the exact folder structure and file names*, so that your homework can be reproduced and graded by an automated script. This homework is **due on April 11** before class.
+
+1. The code below downloads the data for Ames only and saves a local copy to your machine. The first time you run this code, make sure you have a good internet connection and enough space on your machine (~50 MB). If the local copy exists, re-knitting the file will load the (binary) file from disk and be much faster. 
+```{r, cache=TRUE}
+if (file.exists("alcohol.rds")) {
+  dat <- readRDS("alcohol.rds")
+} else {
+  url <- "https://xdaiisu.github.io/ds202materials/data/ames.csv"
+  dat <- readr::read_csv(url)
+  saveRDS(dat, file="alcohol.rds")
+} 
+```
+2. Data cleaning: 
+  - extract geographic latitude and longitude from the variable `Store Location`
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+dat <- dat %>% separate(`Store Location`, c("address1", "cityzip", "coords"), sep = "\n") %>% select(-address1, -cityzip) %>% mutate(coords = gsub("[()]", "", coords)) %>% separate(coords, c("lat", "long"), sep = ",") 
+```
+
+  - check variable types. Pick five variables that need to be converted to a different type and fix those. 
+```{r}
+str(dat)
+dat <- dat %>% mutate(lat = as.double(lat), long = as.double(long), `Vendor Number` = as.double(`Vendor Number`), County = as.factor(County), City = as.factor(City))
+```
+
+  - extract year, month and day from the variable `Date`
+```{r}
+dat <- dat %>% mutate(Date = mdy(Date))
+```
+
+3. First overview:
+  - Plot a scatterplot of lat and long of store locations. 
+```{r}
+dat %>% ggplot(aes(x = lat, y = long)) + geom_point()
+```
+
+  - Provide a visual breakdown of the liquor category (by `Category Name`). Include volume sold in the breakdown.
+```{r}
+ dat %>% filter(`Volume Sold (Liters)` > 1200) %>% ggplot(aes(y = `Volume Sold (Liters)`)) + geom_boxplot() + facet_wrap(~`Category Name`)
+
+#Since there were 124 different factors for 'Category Name', I used only the ones that sold at least 1200 liters.
+```
+
+4. Find the daily sales liquor sales in Ames in 2018. Summarize number of sales, volume of liquor sold and amount of money spent. Plot volume sold by day (use a scatterplot of volume by day and facet by month). Describe any patterns.
+```{r}
+dat %>% subset(Date >= '2018-01-01' & Date <= '2018-12-31') %>% group_by(Date) %>% summarize(Sales = sum(`Bottles Sold`), LitersSold = sum(`Volume Sold (Liters)`), MoneySpent = sum(`Sale (Dollars)`)) %>% ggplot(aes(x = Date, y = LitersSold)) + geom_line()
+#April seemed to be the most popular month for buying liquor. Maybe this was due to finals coming soon. Who knows?
+#Not much liquor was purchased over the summer because lots of college students went home for the summer.
+#Data wasn't collected in most of September and October.
+```
+
+Find the dates for ISU football home games in Fall 2018. Can you see a pattern? 
+```{r}
+#There were games on 9/1, 9/8, 9/15, 9/22, 9/29, 10/6, 10/13, 10/27, 11/3, 11/10, 11/17, 11/24, 12/1, and 12/28.
+#Most of the top days for liquor sales occured in the offseason, but on 11/14 and 11/28 there were lots of sales. Those were right before the Texas and Drake football games.
+```
+
+
+
+Note: your submission is supposed to be fully reproducible, i.e. the TA and I will 'knit' your submission in RStudio. 
+
+
+For the submission: submit your solution in an R Markdown file and (just for insurance) submit the corresponding html (or Word) file with it. 
